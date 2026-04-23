@@ -1,31 +1,37 @@
-# SheetSense AI
+# 📊 SheetSense AI — Smart Spreadsheet Intelligence
 
-A complete full-stack AI application allowing you to converse with your Excel spreadsheets and CSV datasets using natural language. Driven by the Google Gemini AI and Pandas, it executes data processing dynamically and safely to provide you with insights, analytics, schema summaries, and actionable tabular text responses.
-
-## 🚀 Key Features
-- **Intelligent Processing:** Translates plain English into robust Pandas code.
-- **Support for Multi-Sheet & Multi-File:** Load multiple datasets and query across them instantly.
-- **ChatGPT-Style UI:** Designed completely in React and TailwindCSS for a seamless, modern, intuitive experience.
-- **Memory Optimal:** Code queries the data efficiently to run safely without running out of context limits or overwhelming the local resources.
-- **Chat History:** Complete persistent query-by-query history tracking.
+SheetSense AI is a premium, full-stack AI application that transforms how you interact with your data. Leveraging the power of **Mistral AI** and **Pandas**, it allows you to converse with your Excel spreadsheets and CSV datasets using natural language. No more complex formulas—just ask your data questions and get instant insights.
 
 ---
 
-## 🛠 Prerequisites
-- **Python 3.9+**
-- **Node.js 16+**
-- Google Gemini API Key
+## ✨ Key Features
+
+- 🧠 **Intelligent Data Processing:** Translates plain English queries into optimized Pandas code for deep data analysis.
+- 📁 **Multi-Sheet & Multi-File Support:** Upload multiple files (XLSX, CSV) and query across different sheets seamlessly.
+- 💬 **ChatGPT-Inspired Interface:** A modern, responsive UI built with React and TailwindCSS, featuring a clean chat experience and dark mode aesthetics.
+- 📈 **Dynamic Preview & Analysis:** Get instant previews of your datasets and real-time computation of statistics, trends, and summaries.
+- 💾 **Persistent Chat History:** Integrated SQLite database keeps track of your sessions and conversations.
+- 🔒 **Privacy Focused:** Your data is processed locally using secure API calls to Mistral AI.
+
+---
+
+## 🛠 Tech Stack
+
+- **Backend:** FastAPI (Python), Mistral AI SDK, Pandas, SQLAlchemy.
+- **Frontend:** React.js, Vite, TailwindCSS, Lucide Icons.
+- **Database:** SQLite (SQLAlchemy ORM).
+- **Tooling:** Pip, NPM.
 
 ---
 
 ## ⚙️ Backend Setup (FastAPI)
 
-1. Open your terminal and navigate to the backend directory:
+1. **Navigate to the backend directory:**
    ```bash
-   cd "d:/PROJECTS/Excel Chat Analyzer/backend"
+   cd backend
    ```
 
-2. Setup virtual environment:
+2. **Setup virtual environment:**
    ```bash
    python -m venv venv
    
@@ -36,18 +42,18 @@ A complete full-stack AI application allowing you to converse with your Excel sp
    source venv/bin/activate
    ```
 
-3. Install dependencies:
+3. **Install dependencies:**
    ```bash
    pip install -r requirements.txt
    ```
 
-4. Create `.env` file with your **Gemini API Key**:
-   Create a `.env` in the `backend/` directory from `.env.example`:
+4. **Configure Environment Variables:**
+   Create a `.env` file in the `backend/` directory:
    ```env
-   GEMINI_API_KEY=AI_xxxxxx_YOUR_KEY_HERE
+   MISTRAL_API_KEY=your_mistral_api_key_here
    ```
 
-5. Run the FastAPI Server:
+5. **Start the Server:**
    ```bash
    uvicorn main:app --reload --port 8000
    ```
@@ -56,19 +62,27 @@ A complete full-stack AI application allowing you to converse with your Excel sp
 
 ## 🖥 Frontend Setup (React & Vite)
 
-1. Open a **new** terminal tab and navigate to the frontend directory:
+1. **Navigate to the frontend directory:**
    ```bash
-   cd "d:/PROJECTS/Excel Chat Analyzer/frontend"
+   cd frontend
    ```
 
-2. Install NPM dependencies:
+2. **Install dependencies:**
    ```bash
    npm install
    ```
 
-3. Start Vite dev server:
+3. **Launch the Application:**
    ```bash
    npm run dev
    ```
 
-4. Go to the port printed on your terminal (typically `http://localhost:5173`) and start analyzing!
+4. **Access the App:**
+   Open [http://localhost:5173](http://localhost:5173) in your browser and start analyzing your sheets!
+
+---
+
+## 📝 License
+This project is for demonstration purposes. Feel free to use and adapt it for your own data analysis needs.
+
+Developed with ❤️ for smart data analysis.
