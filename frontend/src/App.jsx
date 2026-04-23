@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { v4 as uuidv4 } from 'uuid';
-import { MessageSquare, Upload, Server, FileSpreadsheet, Paperclip, Send, PlusCircle, Trash2 } from 'lucide-react';
+import { MessageSquare, Upload, Server, FileSpreadsheet, Paperclip, Send, PlusCircle, Trash2, X, Eye } from 'lucide-react';
 
 const API_BASE = 'http://localhost:8000';
 
@@ -13,6 +13,11 @@ function App() {
   const [globalFiles, setGlobalFiles] = useState([]);
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(false);
+  const [previewData, setPreviewData] = useState(null);
+  const [previewTitle, setPreviewTitle] = useState('');
+  const [previewType, setPreviewType] = useState(null);
+  const [previewPage, setPreviewPage] = useState(0);
+  const PREVIEW_PAGE_SIZE = 100;
   const fileInputRef = useRef(null);
   const chatEndRef = useRef(null);
 
@@ -133,6 +138,123 @@ function App() {
     }
   };
 
+  const handlePreviewDataset = async (datasetName, sheetName = null) => {
+    try {
+      let url = `${API_BASE}/dataset-preview?session_id=${sessionId}&dataset_name=${datasetName}`;
+      if (sheetName) url += `&sheet_name=${encodeURIComponent(sheetName)}`;
+      const res = await axios.get(url);
+      setPreviewData(res.data);
+      setPreviewTitle(datasetName);
+      setPreviewType('active');
+      setPreviewPage(0);
+    } catch (e) {
+      alert("Could not load preview.");
+    }
+  };
+
+  const handlePreviewGlobalFile = async (filename, sheetName = null) => {
+    try {
+      let url = `${API_BASE}/global-file-preview?filename=${filename}`;
+      if (sheetName) url += `&sheet_name=${encodeURIComponent(sheetName)}`;
+      const res = await axios.get(url);
+      setPreviewData(res.data);
+      setPreviewTitle(filename);
+      setPreviewType('global');
+      setPreviewPage(0);
+    } catch (e) {
+      alert("Could not load preview.");
+    }
+  };
+
+  const handleDeleteGlobalFile = async (filename) => {
+    if (!window.confirm(`Are you sure you want to permanently delete ${filename}?`)) return;
+    try {
+      await axios.delete(`${API_BASE}/global-file/${filename}`);
+      fetchGlobalFiles();
+    } catch (e) {
+      alert("Failed to delete file.");
+    }
+  };
+
+  const handleAddRow = () => {
+    if (!previewData) return;
+    const newRow = {};
+    previewData.columns.forEach(col => newRow[col] = "");
+    const newData = [...previewData.data, newRow];
+    setPreviewData({
+      ...previewData,
+      data: newData
+    });
+    setPreviewPage(Math.floor((newData.length - 1) / PREVIEW_PAGE_SIZE));
+  };
+
+  const handleAddColumn = () => {
+    if (!previewData) return;
+    
+    let baseName = "New_Column";
+    let colName = baseName;
+    let counter = 1;
+    while (previewData.columns.includes(colName)) {
+      colName = `${baseName}_${counter}`;
+      counter++;
+    }
+    
+    const newData = previewData.data.map(row => ({
+      ...row,
+      [colName]: ""
+    }));
+    
+    setPreviewData({
+      columns: [...previewData.columns, colName],
+      data: newData
+    });
+  };
+
+  const handleColumnRename = (oldName, newName) => {
+    if (!newName || newName === oldName || previewData.columns.includes(newName)) return;
+    
+    const newColumns = previewData.columns.map(c => c === oldName ? newName : c);
+    const newData = previewData.data.map(row => {
+      const newRow = { ...row };
+      newRow[newName] = newRow[oldName];
+      delete newRow[oldName];
+      return newRow;
+    });
+
+    setPreviewData({
+      columns: newColumns,
+      data: newData
+    });
+  };
+
+  const handleCellChange = (rowIndex, colName, value) => {
+    const newData = [...previewData.data];
+    newData[rowIndex] = { ...newData[rowIndex], [colName]: value };
+    setPreviewData({
+      ...previewData,
+      data: newData
+    });
+  };
+
+  const handleSavePreview = async () => {
+    if (!previewData) return;
+    try {
+      const payload = { data: previewData.data };
+      if (previewType === 'active') {
+        payload.session_id = sessionId;
+        payload.dataset_name = previewData.current_sheet;
+      } else {
+        payload.filename = previewTitle;
+        payload.sheet_name = previewData.current_sheet;
+      }
+      
+      await axios.post(`${API_BASE}/save-dataset`, payload);
+      alert("Changes saved successfully!");
+    } catch (e) {
+      alert("Failed to save changes.");
+    }
+  };
+
   const handleSend = async () => {
     if (!query.trim()) return;
 
@@ -182,7 +304,7 @@ function App() {
   return (
     <div className="flex h-screen bg-white">
       {/* Sidebar - Made wider to accommodate larger text */}
-      <div className="w-[380px] bg-slate-900 flex flex-col transition-all shrink-0">
+      <div className="w-[450px] bg-slate-900 flex flex-col transition-all shrink-0">
         <div className="p-6 border-b border-white/10 flex items-center gap-4 font-semibold text-2xl text-white tracking-wide">
           <div className="bg-blue-600 p-3 rounded-xl">
             <Server size={26} className="text-white" />
@@ -245,7 +367,7 @@ function App() {
           ) : (
             <ul className="space-y-3">
               {datasets.map((ds, idx) => (
-                <li key={idx} className="flex items-center gap-3 text-[18px] bg-slate-800 text-slate-200 p-4 rounded-xl border border-slate-700 shadow-sm transition hover:bg-slate-700">
+                <li key={idx} onClick={() => handlePreviewDataset(ds)} className="flex items-center gap-3 text-[18px] bg-slate-800 text-slate-200 p-4 rounded-xl border border-slate-700 shadow-sm transition hover:bg-slate-700 cursor-pointer">
                   <FileSpreadsheet size={20} className="text-emerald-400 shrink-0" />
                   <span className="truncate" title={ds}>{ds}</span>
                 </li>
@@ -263,15 +385,23 @@ function App() {
               {globalFiles.map((file, idx) => (
                 <li 
                   key={idx} 
-                  onClick={() => handleUseGlobalFile(file)}
-                  className="flex items-center justify-between gap-3 text-[16px] bg-slate-800/80 text-slate-300 p-3 rounded-xl border border-transparent hover:border-slate-600 shadow-sm transition cursor-pointer hover:bg-slate-700 hover:text-white group"
-                  title={`Click to load ${file} into current session`}
+                  className="flex items-center justify-between gap-3 text-[16px] bg-slate-800/80 text-slate-300 p-3 rounded-xl border border-transparent hover:border-slate-600 shadow-sm transition group hover:bg-slate-700 hover:text-white"
                 >
                   <div className="flex items-center gap-3 truncate">
                     <FileSpreadsheet size={18} className="text-blue-400 shrink-0" />
-                    <span className="truncate">{file}</span>
+                    <span className="truncate" title={file}>{file}</span>
                   </div>
-                  <PlusCircle size={16} className="text-slate-500 group-hover:text-emerald-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                  <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button onClick={(e) => { e.stopPropagation(); handlePreviewGlobalFile(file); }} className="text-slate-400 hover:text-blue-400 p-1.5 bg-slate-800 rounded-md transition-colors" title="View">
+                      <Eye size={18} />
+                    </button>
+                    <button onClick={(e) => { e.stopPropagation(); handleUseGlobalFile(file); }} className="text-slate-400 hover:text-emerald-400 p-1.5 bg-slate-800 rounded-md transition-colors" title="Upload to chat">
+                      <Upload size={18} />
+                    </button>
+                    <button onClick={(e) => { e.stopPropagation(); handleDeleteGlobalFile(file); }} className="text-slate-400 hover:text-red-400 p-1.5 bg-slate-800 rounded-md transition-colors" title="Delete file">
+                      <Trash2 size={18} />
+                    </button>
+                  </div>
                 </li>
               ))}
             </ul>
@@ -301,7 +431,7 @@ function App() {
               </div>
             </div>
           ) : (
-            <div className="max-w-4xl mx-auto space-y-8 px-6">
+            <div className="w-full mx-auto space-y-8 px-8">
               {history.map((msg, idx) => (
                 <div key={idx} className={`flex gap-4 items-start ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                   
@@ -380,8 +510,8 @@ function App() {
         </div>
 
         {/* Input Text Box fixed bottom container */}
-        <div className="absolute bottom-0 w-full bg-gradient-to-t from-slate-50 via-slate-50 md:via-slate-50/90 to-transparent pt-12 pb-8 px-6">
-          <div className="max-w-4xl mx-auto relative flex flex-col bg-white border border-slate-300 shadow-xl shadow-slate-200/50 rounded-2xl focus-within:ring-2 ring-blue-500/50 transition-all duration-300">
+        <div className="absolute bottom-0 w-full bg-gradient-to-t from-slate-50 via-slate-50 md:via-slate-50/90 to-transparent pt-12 pb-8 px-8">
+          <div className="w-full mx-auto relative flex flex-col bg-white border border-slate-300 shadow-xl shadow-slate-200/50 rounded-2xl focus-within:ring-2 ring-blue-500/50 transition-all duration-300">
             
             <div className="flex items-center p-2 gap-2">
               {/* Hidden File Input */}
@@ -427,11 +557,121 @@ function App() {
             
           </div>
           <div className="text-center text-xs font-medium text-slate-400 mt-4 tracking-wide">
-            Powered by Gemini AI • Always verify results independently
+            Powered by Mistral AI • Always verify results independently
           </div>
         </div>
 
       </div>
+
+      {/* Preview Modal */}
+      {previewData && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl w-[98vw] h-[95vh] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div className="flex items-center justify-between p-6 border-b border-slate-200 bg-slate-50">
+              <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-3">
+                <FileSpreadsheet className="text-emerald-500" />
+                {previewTitle} <span className="text-sm font-normal text-slate-500 bg-slate-200 px-3 py-1 rounded-full">All Data</span>
+              </h2>
+              <div className="flex items-center gap-3">
+                <button onClick={handleAddColumn} className="px-4 py-2 text-sm font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition">Add Column</button>
+                <button onClick={handleAddRow} className="px-4 py-2 text-sm font-medium text-emerald-600 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition">Add Row</button>
+                <button onClick={handleSavePreview} className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition shadow-sm">Save Changes</button>
+                <button onClick={() => setPreviewData(null)} className="p-2 ml-2 text-slate-400 hover:text-slate-700 hover:bg-slate-200 rounded-full transition">
+                  <X size={24} />
+                </button>
+              </div>
+            </div>
+            <div className="flex-1 overflow-auto p-0 bg-white">
+              <table className="w-full text-left border-collapse text-sm whitespace-nowrap">
+                <thead className="bg-slate-100 sticky top-0 shadow-sm z-10">
+                  <tr>
+                    {previewData.columns.map((col, i) => (
+                      <th key={i} className="p-2 font-semibold text-slate-700 border-b border-slate-200">
+                        <input 
+                          key={`header-${col}`}
+                          type="text" 
+                          defaultValue={col}
+                          onBlur={(e) => handleColumnRename(col, e.target.value)}
+                          className="w-full bg-transparent border border-transparent hover:border-slate-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded px-2 py-1 outline-none transition font-semibold"
+                        />
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {(previewData ? previewData.data.slice(previewPage * PREVIEW_PAGE_SIZE, (previewPage + 1) * PREVIEW_PAGE_SIZE) : []).map((row, i) => {
+                    const actualIndex = previewPage * PREVIEW_PAGE_SIZE + i;
+                    return (
+                    <tr key={actualIndex} className="border-b border-slate-100 hover:bg-slate-50 transition">
+                      {previewData.columns.map((col, j) => (
+                        <td key={j} className="p-2 text-slate-600 max-w-xs truncate">
+                          <input 
+                            key={`cell-${actualIndex}-${col}`}
+                            type="text" 
+                            defaultValue={row[col] !== null && row[col] !== undefined ? String(row[col]) : ''} 
+                            onBlur={(e) => handleCellChange(actualIndex, col, e.target.value)}
+                            className="w-full bg-transparent border border-transparent hover:border-slate-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded px-2 py-1 outline-none transition"
+                            title={String(row[col])}
+                          />
+                        </td>
+                      ))}
+                    </tr>
+                  )})}
+                </tbody>
+              </table>
+              {previewData.data.length === 0 && (
+                <div className="p-12 text-center text-slate-500">No data available</div>
+              )}
+            </div>
+            
+            {/* Pagination Controls */}
+            {previewData && previewData.data.length > 0 && (
+              <div className="flex items-center justify-between p-4 border-t border-slate-200 bg-slate-50">
+                <span className="text-sm text-slate-500">
+                  Showing {previewPage * PREVIEW_PAGE_SIZE + 1} to {Math.min((previewPage + 1) * PREVIEW_PAGE_SIZE, previewData.data.length)} of {previewData.data.length} rows
+                </span>
+                <div className="flex gap-2">
+                  <button 
+                    onClick={() => setPreviewPage(p => Math.max(0, p - 1))} 
+                    disabled={previewPage === 0}
+                    className="px-4 py-2 text-sm bg-white border border-slate-300 rounded-lg hover:bg-slate-50 disabled:opacity-50 transition"
+                  >
+                    Previous
+                  </button>
+                  <button 
+                    onClick={() => setPreviewPage(p => Math.min(Math.ceil(previewData.data.length / PREVIEW_PAGE_SIZE) - 1, p + 1))} 
+                    disabled={previewPage >= Math.ceil(previewData.data.length / PREVIEW_PAGE_SIZE) - 1}
+                    className="px-4 py-2 text-sm bg-white border border-slate-300 rounded-lg hover:bg-slate-50 disabled:opacity-50 transition"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            )}
+            
+            {/* Excel-like Sheet Tabs */}
+            {previewData && previewData.sheets && previewData.sheets.length > 1 && (
+              <div className="flex items-center gap-1 px-4 pt-2 bg-slate-100 border-t border-slate-300 overflow-x-auto no-scrollbar shrink-0">
+                {previewData.sheets.map(sheet => (
+                  <button
+                    key={sheet}
+                    onClick={() => {
+                      if (previewType === 'global') {
+                        handlePreviewGlobalFile(previewTitle, sheet);
+                      } else {
+                        handlePreviewDataset(previewTitle, sheet);
+                      }
+                    }}
+                    className={`px-6 py-2 text-sm font-medium rounded-t-xl transition whitespace-nowrap border-t border-x border-transparent ${previewData.current_sheet === sheet ? 'bg-white text-blue-600 shadow-sm !border-slate-300 z-10' : 'bg-transparent text-slate-500 hover:bg-slate-200 hover:text-slate-700'}`}
+                  >
+                    {sheet.replace(previewTitle.split('.')[0] + '_', '')}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

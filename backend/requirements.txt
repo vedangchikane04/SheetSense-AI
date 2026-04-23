@@ -3,7 +3,7 @@ uvicorn
 pandas
 openpyxl
 python-multipart
-google-generativeai
+mistralai
 sqlalchemy
 pydantic
 python-dotenv

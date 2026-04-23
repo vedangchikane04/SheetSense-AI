@@ -1,9 +1,21 @@
+# Python
+__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Backend specifics
 /backend/venv/
-/backend/__pycache__/
 /backend/.env
-/backend/chat_history.db
+chat_history.db
 /backend/uploads/
 /backend/exports/
+
+# Frontend
 /frontend/node_modules/
 /frontend/dist/
+
+# OS
 .DS_Store
+Thumbs.db
